@@ -78,3 +78,51 @@ def create_curriculum(input_data: StylesInput):
     curriculum_items = [CurriculumItem(**item) for item in data]
 
     return Response(data=curriculum_items)
+
+
+def get_books():
+    books_data = [
+        {
+            "id": "book1",
+            "title": "React 책",
+            "curriculum": [
+                {
+                    "title": "1. React 소개",
+                    "subItems": [
+                        {"title": "1.1 React란?"},
+                        {"title": "1.2 React의 장점"},
+                    ],
+                },
+                {
+                    "title": "2. React 심화",
+                    "subItems": [
+                        {"title": "2.1 Hooks"},
+                        {"title": "2.2 컴포넌트 상태 관리"},
+                    ],
+                },
+            ],
+        },
+        {
+            "id": "book2",
+            "title": "하이버네이트 책",
+            "curriculum": [
+                {
+                    "title": "1. 하이버네이트 소개",
+                    "subItems": [
+                        {"title": "1.1 하이버네이트란?"},
+                        {"title": "1.2 하이버네이트의 역사"},
+                    ],
+                },
+                {
+                    "title": "2. 하이버네이트 설정",
+                    "subItems": [
+                        {"title": "2.1 설정 파일 만들기"},
+                        {"title": "2.2 데이터베이스 연결"},
+                    ],
+                },
+            ],
+        },
+    ]
+
+    # Book 모델에 맞게 데이터를 변환하여 반환
+    return [Book(**book) for book in books_data]

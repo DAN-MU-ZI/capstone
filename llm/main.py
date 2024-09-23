@@ -35,3 +35,8 @@ async def create_curriculum(input_data: StylesInput):
         raise HTTPException(status_code=400, detail="No styles selected")
 
     return service.create_curriculum(input_data)
+
+
+@app.get("/api/books", response_model=List[Book])
+async def get_books():
+    return service.get_books()

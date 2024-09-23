@@ -1,5 +1,7 @@
+// BookCurriculumPage.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import 'daisyui/dist/full.css'; // DaisyUI 스타일 임포트
 
 // 타입 정의
 type CurriculumItem = {
@@ -13,36 +15,63 @@ type Book = {
     curriculum: CurriculumItem[]; // 책 안에 커리큘럼을 포함
 };
 
-// Accordion 컴포넌트
+// API 응답 타입 정의
+type FetchBooksResponse = {
+    data?: Book[];
+    books?: Book[];
+    success?: boolean;
+    // 필요한 경우 다른 필드를 추가
+};
+
+// 로딩 인디케이터 컴포넌트 (DaisyUI 사용)
+const Spinner: React.FC = () => (
+    <div className="flex justify-center items-center h-64">
+        <span className="loading loading-spinner loading-lg"></span>
+    </div>
+);
+
+// Alert 컴포넌트 (DaisyUI 사용)
+const Alert: React.FC<{ message: string }> = ({ message }) => (
+    <div className="alert alert-error shadow-lg mb-4">
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{message}</span>
+        </div>
+    </div>
+);
+
+// 아코디언 컴포넌트 (React 상태로 관리)
 const Accordion: React.FC<{
     title: string;
     children: React.ReactNode;
-    onToggle: () => void;
-    isOpen: boolean;
     onLearn: () => void;
-}> = ({ title, children, onToggle, isOpen, onLearn }) => {
+}> = ({ title, children, onLearn }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const toggleAccordion = () => {
+        setIsOpen((prev) => !prev);
+    };
+
     return (
-        <div className="mb-2 border border-gray-300 rounded">
-            <div className="p-2 bg-gray-100 font-bold flex justify-between items-center">
-                <span>{title}</span>
-                <div>
-                    {/* 학습하기 버튼 */}
-                    <button
-                        onClick={onLearn}
-                        className="px-4 py-2 mr-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                        학습하기
-                    </button>
-                    {/* 토글 버튼 */}
-                    <button
-                        onClick={onToggle}
-                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                    >
-                        {isOpen ? '접기' : '자세히 보기'}
-                    </button>
-                </div>
+        <div className="border border-base-300 bg-base-100 rounded-box mb-4">
+            <div
+                className="flex justify-between items-center p-4 cursor-pointer"
+                onClick={toggleAccordion}
+            >
+                <span className="text-xl font-medium">{title}</span>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation(); // 아코디언 토글 이벤트 방지
+                        onLearn();
+                    }}
+                    className="btn btn-primary btn-sm"
+                >
+                    학습하기
+                </button>
             </div>
-            {isOpen && <div className="p-2 bg-white">{children}</div>}
+            {isOpen && <div className="p-4">{children}</div>}
         </div>
     );
 };
@@ -52,7 +81,7 @@ const renderCurriculumItems = (items: CurriculumItem[]) => {
     return (
         <ul className="list-disc pl-5">
             {items.map((item, index) => (
-                <li key={index}>
+                <li key={index} className="text-base-content mb-1">
                     {item.title}
                     {item.subItems && renderCurriculumItems(item.subItems)}
                 </li>
@@ -64,77 +93,49 @@ const renderCurriculumItems = (items: CurriculumItem[]) => {
 // 메인 컴포넌트
 const BookCurriculumPage: React.FC = () => {
     const [books, setBooks] = useState<Book[]>([]); // 책 목록 상태
-    const [selectedBookId, setSelectedBookId] = useState<string | null>(null); // 선택된 책 ID 상태
+    const [isLoading, setIsLoading] = useState<boolean>(false); // 로딩 상태
+    const [error, setError] = useState<string | null>(null); // 에러 상태
     const navigate = useNavigate(); // 페이지 이동을 위한 네비게이트 함수
 
     // 책 목록을 가져오는 함수
     const fetchBooks = useCallback(async () => {
-        // 실제 API 호출로 대체 (책에 커리큘럼 포함)
-        const data: Book[] = [
-            {
-                id: '1',
-                title: 'React 기초',
-                curriculum: [
-                    {
-                        title: '1. 기본 개념',
-                        subItems: [
-                            { title: '1.1 개요' },
-                            { title: '1.2 구조' },
-                            { title: '1.3 동작 원리' },
-                        ],
-                    },
-                    {
-                        title: '2. 설치 및 설정',
-                        subItems: [
-                            { title: '2.1 설치 방법' },
-                            { title: '2.2 환경 설정' },
-                        ],
-                    },
-                ],
-            },
-            {
-                id: '2',
-                title: 'JavaScript 심화',
-                curriculum: [
-                    {
-                        title: '1. 고급 개념',
-                        subItems: [
-                            { title: '1.1 클로저' },
-                            { title: '1.2 프로미스' },
-                        ],
-                    },
-                    {
-                        title: '2. 비동기 프로그래밍',
-                        subItems: [
-                            { title: '2.1 async/await' },
-                            { title: '2.2 이벤트 루프' },
-                        ],
-                    },
-                ],
-            },
-            {
-                id: '3',
-                title: 'TypeScript 마스터',
-                curriculum: [
-                    {
-                        title: '1. 타입 시스템',
-                        subItems: [
-                            { title: '1.1 타입 추론' },
-                            { title: '1.2 제네릭' },
-                        ],
-                    },
-                    {
-                        title: '2. 고급 타입',
-                        subItems: [
-                            { title: '2.1 조건부 타입' },
-                            { title: '2.2 유틸리티 타입' },
-                        ],
-                    },
-                ],
-            },
-        ];
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await fetch('http://localhost:8000/api/books', {
+                headers: {
+                    'Accept': 'application/json',
+                },
+                method: 'GET',
+            });
 
-        setBooks(data); // 상태에 책 목록 저장
+            if (!response.ok) {
+                throw new Error(`Failed to fetch books: ${response.status} ${response.statusText}`);
+            }
+
+            const data: FetchBooksResponse = await response.json();
+            console.log('Fetched data:', data); // API 응답 확인용 로그
+
+            // API 응답 구조에 따라 데이터 설정
+            let booksData: Book[] = [];
+
+            if (Array.isArray(data.data)) {
+                booksData = data.data;
+            } else if (Array.isArray(data.books)) {
+                booksData = data.books;
+            } else if (Array.isArray(data)) {
+                booksData = data;
+            } else {
+                throw new Error('Unexpected API response structure');
+            }
+
+            setBooks(booksData);
+        } catch (err) {
+            console.error(err);
+            setError('책 목록을 불러오는 데 실패했습니다.');
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
 
     // 컴포넌트가 마운트될 때 책 목록을 가져옴
@@ -142,32 +143,41 @@ const BookCurriculumPage: React.FC = () => {
         fetchBooks();
     }, [fetchBooks]);
 
-    // 아코디언 토글 핸들러
-    const handleAccordionToggle = (bookId: string) => {
-        setSelectedBookId((prevSelectedBookId) => (prevSelectedBookId === bookId ? null : bookId));
-    };
-
     // 학습하기 버튼을 눌렀을 때, 해당 책의 학습 페이지로 이동
     const handleLearn = (bookId: string) => {
+        console.log(`학습하기 버튼 클릭: ${bookId}`); // 디버깅 로그
         navigate(`/learn/${bookId}`); // 해당 책의 학습 페이지로 이동
     };
 
     return (
-        <div className="container mx-auto p-6">
-            <h1 className="text-2xl font-bold mb-6">책 목록</h1>
-            <div>
-                {books.map((book) => (
-                    <Accordion
-                        key={book.id}
-                        title={book.title}
-                        isOpen={selectedBookId === book.id}
-                        onToggle={() => handleAccordionToggle(book.id)}
-                        onLearn={() => handleLearn(book.id)} // 학습하기 버튼 클릭 시 페이지 이동
-                    >
-                        {renderCurriculumItems(book.curriculum)} {/* 책의 커리큘럼을 아코디언 안에 렌더링 */}
-                    </Accordion>
-                ))}
-            </div>
+        <div className="container mx-auto p-6 bg-base-200 min-h-screen">
+            <h1 className="text-3xl font-bold mb-6 text-base-content">책 목록</h1>
+            {isLoading ? (
+                <Spinner />
+            ) : error ? (
+                <Alert message={error} />
+            ) : books.length === 0 ? (
+                <div className="alert alert-info shadow-lg">
+                    <div>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>현재 등록된 책이 없습니다.</span>
+                    </div>
+                </div>
+            ) : (
+                <div>
+                    {books.map((book) => (
+                        <Accordion
+                            key={book.id}
+                            title={book.title}
+                            onLearn={() => handleLearn(book.id)} // 학습하기 버튼 클릭 시 페이지 이동
+                        >
+                            {renderCurriculumItems(book.curriculum)} {/* 책의 커리큘럼을 아코디언 안에 렌더링 */}
+                        </Accordion>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

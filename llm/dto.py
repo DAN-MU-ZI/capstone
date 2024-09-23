@@ -31,3 +31,9 @@ class Example(BaseModel):
 
 class ExampleInput(BaseModel):
     input: str
+
+
+class Book(BaseModel):
+    id: str
+    title: str
+    curriculum: List[CurriculumItem]
