@@ -55,12 +55,23 @@ const Accordion: React.FC<{
     };
 
     return (
-        <div className="border border-base-300 bg-base-100 rounded-box mb-4">
+        <div className="border border-base-300 bg-base-100 rounded-box mb-4 shadow-md transition-all duration-300">
             <div
-                className="flex justify-between items-center p-4 cursor-pointer"
+                className="flex justify-between items-center p-4 cursor-pointer bg-base-200 hover:bg-base-300 transition-colors duration-300"
                 onClick={toggleAccordion}
             >
-                <span className="text-xl font-medium">{title}</span>
+                <div className="flex items-center space-x-2">
+                    <span className="text-xl font-medium">{title}</span>
+                    <svg
+                        className={`w-5 h-5 transition-transform duration-300 ${isOpen ? 'transform rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
                 <button
                     onClick={(e) => {
                         e.stopPropagation(); // 아코디언 토글 이벤트 방지
@@ -71,7 +82,11 @@ const Accordion: React.FC<{
                     학습하기
                 </button>
             </div>
-            {isOpen && <div className="p-4">{children}</div>}
+            {isOpen && (
+                <div className="p-4 bg-base-100 transition-max-height duration-300 ease-in-out">
+                    {children}
+                </div>
+            )}
         </div>
     );
 };
@@ -166,7 +181,7 @@ const BookCurriculumPage: React.FC = () => {
                     </div>
                 </div>
             ) : (
-                <div>
+                <div className="space-y-4">
                     {books.map((book) => (
                         <Accordion
                             key={book.id}
