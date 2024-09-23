@@ -1,8 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import service
 from pydantic import BaseModel
 from typing import Optional, List
+from dto import *
 
 app = FastAPI()
 
@@ -16,11 +17,21 @@ app.add_middleware(
 )
 
 
-@app.get("/api/example")
-async def example():
-    return service.create_example()
+@app.post("/api/example")
+async def example(input_data: ExampleInput):
+    print(input_data)
+    if not input_data.input:
+        raise HTTPException(status_code=400, detail="Invalid input")
+
+    return service.create_example(input_data)
 
 
-@app.get("/api/curriculum")
-async def create_curriculum():
-    return service.create_curriculum()
+@app.post("/api/curriculum")
+async def create_curriculum(input_data: StylesInput):
+    print(input_data)
+
+    # 예시로 스타일을 기준으로 데이터를 필터링
+    if not input_data:
+        raise HTTPException(status_code=400, detail="No styles selected")
+
+    return service.create_curriculum(input_data)

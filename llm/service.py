@@ -1,18 +1,35 @@
 from pydantic import BaseModel
 from typing import Optional, List
+from dto import *
 
 
-class CurriculumItem(BaseModel):
-    title: str
-    subItems: Optional[List["CurriculumItem"]] = None
+def create_example(input_data: ExampleInput):
+    example = {
+        "title": "React",
+        "examples": [
+            {
+                "style": "간결하고 직관적인 설명",
+                "content": "React는 사용자 인터페이스를 만들기 위한 JavaScript 라이브러리입니다. React는 컴포넌트라는 작은 코드 조각을 사용하여 사용자 인터페이스를 구성합니다. React는 사용자가 데이터를 변경할 때마다 자동으로 UI를 업데이트합니다.",
+            },
+            {
+                "style": "비유적인 설명",
+                "content": "React는 집을 짓는 것과 같습니다. 컴포넌트를 벽돌처럼 쌓아올려 페이지를 완성하며, 벽돌 하나를 바꾸면 전체 구조를 새로 만들 필요 없이 그 벽돌만 교체합니다.",
+            },
+            {
+                "style": "실생활 예시를 활용한 설명",
+                "content": "React는 마치 레고 블록으로 무언가를 만드는 것과 같습니다. 각 레고 블록(컴포넌트)을 조립하여 다양한 모양을 만들고, 변경할 부분이 생기면 해당 블록만 바꿔 다시 조립하면 됩니다.",
+            },
+            {
+                "style": "기술적인 설명",
+                "content": "React는 Virtual DOM을 활용하여 실제 DOM 조작을 최소화함으로써 성능을 최적화합니다. 상태(state)와 속성(props)을 통해 컴포넌트를 재사용하며, JSX를 사용하여 JavaScript 안에 HTML을 작성할 수 있습니다.",
+            },
+        ],
+    }
+
+    return Response(data=Example(**example))
 
 
-class Response(BaseModel):
-    data: object
-
-
-def create_curriculum():
-
+def create_curriculum(input_data: StylesInput):
     data = [
         {
             "title": "1. 하이버네이트 소개",
@@ -61,40 +78,3 @@ def create_curriculum():
     curriculum_items = [CurriculumItem(**item) for item in data]
 
     return Response(data=curriculum_items)
-
-
-class Explanation(BaseModel):
-    style: str
-    content: str
-
-
-# Example 모델 정의
-class Example(BaseModel):
-    title: str
-    examples: List[Explanation]
-
-
-def create_example():
-    example = {
-        "title": "React",
-        "examples": [
-            {
-                "style": "간결하고 직관적인 설명",
-                "content": "React는 사용자 인터페이스를 만들기 위한 JavaScript 라이브러리입니다. React는 컴포넌트라는 작은 코드 조각을 사용하여 사용자 인터페이스를 구성합니다. React는 사용자가 데이터를 변경할 때마다 자동으로 UI를 업데이트합니다.",
-            },
-            {
-                "style": "비유적인 설명",
-                "content": "React는 집을 짓는 것과 같습니다. 컴포넌트를 벽돌처럼 쌓아올려 페이지를 완성하며, 벽돌 하나를 바꾸면 전체 구조를 새로 만들 필요 없이 그 벽돌만 교체합니다.",
-            },
-            {
-                "style": "실생활 예시를 활용한 설명",
-                "content": "React는 마치 레고 블록으로 무언가를 만드는 것과 같습니다. 각 레고 블록(컴포넌트)을 조립하여 다양한 모양을 만들고, 변경할 부분이 생기면 해당 블록만 바꿔 다시 조립하면 됩니다.",
-            },
-            {
-                "style": "기술적인 설명",
-                "content": "React는 Virtual DOM을 활용하여 실제 DOM 조작을 최소화함으로써 성능을 최적화합니다. 상태(state)와 속성(props)을 통해 컴포넌트를 재사용하며, JSX를 사용하여 JavaScript 안에 HTML을 작성할 수 있습니다.",
-            },
-        ],
-    }
-
-    return Response(data=Example(**example))

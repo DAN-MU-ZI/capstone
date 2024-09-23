@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Swiper, SwiperSlide, useSwiper } from 'swiper/react';
 import 'swiper/css';
 import { useNavigate } from 'react-router-dom';
@@ -26,18 +26,54 @@ type Book = {
     curriculum: CurriculumItem[];
 };
 
-// Accordion 컴포넌트 (Swiper 높이를 업데이트하도록 수정)
+// API 호출 함수 수정: POST 요청으로 변경
+const fetchExampleData = async (input: string): Promise<Example> => {
+    const response = await fetch('http://localhost:8000/api/example', {
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json', // 요청 본문의 타입을 명시
+        },
+        method: 'POST', // GET에서 POST로 변경
+        body: JSON.stringify({ input }), // 사용자 입력을 요청 본문에 포함
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch example data');
+    }
+
+    const data = await response.json();
+    return data.data;
+};
+
+// API 호출 함수 수정: POST 요청으로 변경
+const fetchCurriculumData = async (selectedStyles: string[]): Promise<CurriculumItem[]> => {
+    const response = await fetch('http://localhost:8000/api/curriculum', {
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json', // 요청 본문의 타입을 명시
+        },
+        method: 'POST', // GET에서 POST로 변경
+        body: JSON.stringify({ styles: selectedStyles }), // 선택한 스타일을 요청 본문에 포함
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch curriculum data');
+    }
+
+    const data = await response.json();
+    return data.data;
+};
+
+// 아코디언 컴포넌트
 const Accordion: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const swiper = useSwiper(); // Swiper 인스턴스 가져오기
+    const swiper = useSwiper();
 
     const toggleOpen = useCallback(() => {
         setIsOpen((prev) => !prev);
-
-        // 아코디언 상태가 변경될 때 swiper의 높이를 업데이트
         setTimeout(() => {
             swiper.updateAutoHeight();
-        }, 0); // 상태 변경 후 Swiper가 변화를 감지할 수 있도록 setTimeout 사용
+        }, 0);
     }, [swiper]);
 
     return (
@@ -50,19 +86,17 @@ const Accordion: React.FC<{ title: string; children: React.ReactNode }> = ({ tit
     );
 };
 
-// 재귀적으로 커리큘럼 항목 렌더링
-const renderCurriculumItems = (items: CurriculumItem[]) => {
-    return (
-        <ul className="list-disc pl-5">
-            {items.map((item, index) => (
-                <li key={index}>
-                    {item.title}
-                    {item.subItems && renderCurriculumItems(item.subItems)}
-                </li>
-            ))}
-        </ul>
-    );
-};
+// 커리큘럼 항목 렌더링 함수
+const renderCurriculumItems = (items: CurriculumItem[]) => (
+    <ul className="list-disc pl-5">
+        {items.map((item, index) => (
+            <li key={index}>
+                {item.title}
+                {item.subItems && renderCurriculumItems(item.subItems)}
+            </li>
+        ))}
+    </ul>
+);
 
 // Swiper 버튼 컴포넌트
 const SwiperButtonPrev: React.FC<{ children: string }> = ({ children }) => {
@@ -92,44 +126,129 @@ const SwiperButtonNext: React.FC<{ children: string; onClick?: () => void }> = (
     );
 };
 
+// 슬라이드 컴포넌트
+const InputSlide: React.FC<{
+    input: string;
+    setInput: React.Dispatch<React.SetStateAction<string>>;
+    selectExample: (text: string) => Promise<void>;
+}> = ({ input, setInput, selectExample }) => (
+    <div className="mb-4">
+        <h2 className="text-2xl font-bold mb-2">학습하고 싶은 내용을 입력하세요</h2>
+        <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="예: React, Tailwind CSS"
+            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <div className="flex justify-end mt-4">
+            <SwiperButtonNext onClick={() => selectExample(input)}>다음</SwiperButtonNext>
+        </div>
+    </div>
+);
+
+const ExampleSlide: React.FC<{
+    example: Example | null;
+    isLoadingExample: boolean;
+    selectedStyles: string[];
+    handleCheckboxChange: (style: string) => void;
+    fetchCurriculumData: () => Promise<void>;
+}> = ({
+    example,
+    isLoadingExample,
+    selectedStyles,
+    handleCheckboxChange,
+    fetchCurriculumData,
+}) => (
+        <>
+            {isLoadingExample ? (
+                <div>Loading...</div>
+            ) : example ? (
+                <>
+                    <h2 className="text-2xl font-bold mb-4">{example.title}에 대한 설명 스타일을 선택하세요</h2>
+                    <div className="flex flex-wrap gap-4">
+                        {example.examples.map((explanation) => (
+                            <label key={explanation.style} className="border border-gray-300 rounded p-4 w-60 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="mb-2"
+                                    checked={selectedStyles.includes(explanation.style)}
+                                    onChange={() => handleCheckboxChange(explanation.style)}
+                                />
+                                <h3 className="text-lg font-semibold mb-2">{explanation.style}</h3>
+                                <p className="text-gray-600">{explanation.content}</p>
+                            </label>
+                        ))}
+                    </div>
+                    <div className="flex justify-between mt-4">
+                        <SwiperButtonPrev>이전</SwiperButtonPrev>
+                        <SwiperButtonNext onClick={() => fetchCurriculumData()}>다음</SwiperButtonNext>
+                    </div>
+                </>
+            ) : (
+                <div>예제를 선택하세요.</div>
+            )}
+        </>
+    );
+
+const CurriculumSlide: React.FC<{
+    curriculum: CurriculumItem[];
+    isLoading: boolean;
+    handleComplete: () => void;
+}> = ({ curriculum, isLoading, handleComplete }) => (
+    <>
+        <h2 className="text-2xl font-bold mb-4">커리큘럼 목차</h2>
+        <div className="max-h-96 overflow-y-auto">
+            {isLoading ? (
+                <div>Loading...</div>
+            ) : (
+                curriculum.map((item, index) => (
+                    <Accordion key={index} title={item.title}>
+                        {item.subItems && renderCurriculumItems(item.subItems)}
+                    </Accordion>
+                ))
+            )}
+        </div>
+        <div className="flex justify-between mt-4">
+            <SwiperButtonPrev>이전</SwiperButtonPrev>
+            <button
+                className="px-4 py-2 bg-green-500 text-white rounded-lg focus:outline-none"
+                onClick={handleComplete}
+            >
+                완료
+            </button>
+        </div>
+    </>
+);
+
 // 메인 컴포넌트
 const Onboarding: React.FC = () => {
-    const [input, setInput] = useState(''); // 입력값 상태
-    const [example, setExample] = useState<Example | null>(null); // 선택된 예제 상태
-    const [selectedStyles, setSelectedStyles] = useState<string[]>([]); // 선택한 스타일 목록
-    const [curriculum, setCurriculum] = useState<CurriculumItem[]>([]); // 커리큘럼 상태 관리
-    const [isLoading, setIsLoading] = useState<boolean>(true); // 커리큘럼 로딩 상태 관리
-    const [isLoadingExample, setIsLoadingExample] = useState<boolean>(false); // 예제 데이터 로딩 상태 관리
-    const [isExampleLoaded, setIsExampleLoaded] = useState<boolean>(false); // 예제 데이터 로딩 완료 여부
-    const navigate = useNavigate(); // 페이지 이동을 위한 useNavigate 훅 사용
-    const swiperRef = useRef<SwiperCore | null>(null); // Swiper 인스턴스 참조
+    const [input, setInput] = useState('');
+    const [example, setExample] = useState<Example | null>(null);
+    const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+    const [curriculum, setCurriculum] = useState<CurriculumItem[]>([]);
+    const [isLoading, setIsLoading] = useState<boolean>(false); // 초기값을 false로 변경
+    const [isLoadingExample, setIsLoadingExample] = useState<boolean>(false);
+    const [isExampleLoaded, setIsExampleLoaded] = useState<boolean>(false);
+    const navigate = useNavigate();
+    const swiperRef = useRef<SwiperCore | null>(null);
 
-    async function getExampleData(): Promise<Example> {
-        const response = await fetch('http://localhost:8000/api/example', {
-            headers: {
-                Accept: 'application/json',
-            },
-            method: 'GET',
-        });
-        if (!response.ok) {
-            throw new Error('Failed to get data');
-        }
-
-        const jsonResponse = await response.json();
-        return jsonResponse.data;
-    }
-
-    // 예제 선택 및 가져오기
+    // 예제 선택 및 데이터 가져오기
     const selectExample = useCallback(async (text: string) => {
-        setIsLoadingExample(true);  // 로딩 시작
+        if (!text.trim()) {
+            alert('입력값을 입력해주세요.');
+            return;
+        }
+        setIsLoadingExample(true);
         try {
-            const data = await getExampleData();
+            const data = await fetchExampleData(text);
             setExample(data);
-            setIsExampleLoaded(true);  // 데이터 로드 완료 상태 설정
+            setIsExampleLoaded(true);
         } catch (error) {
             console.error('Error fetching example:', error);
+            alert('예제 데이터를 가져오는 데 실패했습니다.');
         } finally {
-            setIsLoadingExample(false);  // 로딩 종료
+            setIsLoadingExample(false);
         }
     }, []);
 
@@ -140,79 +259,35 @@ const Onboarding: React.FC = () => {
         );
     }, []);
 
-    async function getCurriculumData(): Promise<CurriculumItem[]> {
-        const response = await fetch('http://localhost:8000/api/curriculum', {
-            headers: {
-                Accept: 'application/json',
-            },
-            method: 'GET',
-        });
-        if (!response.ok) {
-            throw new Error('Failed to get data');
+    // 커리큘럼 데이터 가져오기 (POST 요청으로 스타일 전달)
+    const fetchCurriculum = useCallback(async () => {
+        if (selectedStyles.length === 0) {
+            alert('적어도 하나의 스타일을 선택해주세요.');
+            return;
         }
-
-        const jsonResponse = await response.json();
-        const data: CurriculumItem[] = jsonResponse.data;
-        return data;
-    }
-
-    const fetchCurriculumData = async () => {
-        setIsLoading(true);  // 커리큘럼 로딩 시작
+        setIsLoading(true);
         try {
-            const data = await getCurriculumData();
+            const data = await fetchCurriculumData(selectedStyles); // 선택한 스타일 전달
             setCurriculum(data);
         } catch (error) {
             console.error('Error fetching curriculum:', error);
+            alert('커리큘럼 데이터를 가져오는 데 실패했습니다.');
         } finally {
-            setIsLoading(false);  // 커리큘럼 로딩 종료
+            setIsLoading(false);
         }
-    };
+    }, [selectedStyles]);
 
+    // 완료 버튼 핸들러
     const handleComplete = useCallback(() => {
         navigate('/library');
     }, [navigate]);
 
-    // Swiper 높이 업데이트: example 데이터가 로드된 후 Swiper의 높이를 자동으로 업데이트
+    // Swiper 높이 업데이트
     useEffect(() => {
         if (isExampleLoaded && swiperRef.current) {
             swiperRef.current.updateAutoHeight();
         }
     }, [isExampleLoaded]);
-
-
-
-    // API로 데이터를 보내는 함수
-    const sendSelectedData = async () => {
-        try {
-            // 나중에 사용할 코드
-            // const book: Book = {
-            //     title: input,
-            //     style: selectedStyles,
-            //     curriculum: curriculum,
-            // };
-            // const response = await fetch('/api/submit', {
-            //     method: 'POST',
-            //     headers: {
-            //         'Content-Type': 'application/json',
-            //     },
-            //     body: JSON.stringify({
-            //         book: book,
-            //     }),
-            // });
-
-            // if (!response.ok) {
-            //     throw new Error('Failed to submit data');
-            // }
-
-            // const result = await response.json();
-            // console.log('서버 응답:', result);
-
-            // 데이터 전송이 성공하면 완료 페이지로 이동
-            navigate('/library');
-        } catch (error) {
-            console.error('데이터 전송 중 오류 발생:', error);
-        }
-    };
 
     return (
         <div className="bg-gray-100 min-h-screen flex justify-center items-center">
@@ -224,77 +299,27 @@ const Onboarding: React.FC = () => {
                     autoHeight={true}
                     className="transition-all duration-300"
                     onSwiper={(swiper: SwiperCore) => {
-                        swiperRef.current = swiper; // Swiper 인스턴스 저장
+                        swiperRef.current = swiper;
                     }}
                 >
-                    <SwiperSlide>
-                        <div className="mb-4">
-                            <h2 className="text-2xl font-bold mb-2">학습하고 싶은 내용을 입력하세요</h2>
-                            <input
-                                type="text"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder="예: React, Tailwind CSS"
-                                className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                        <div className="flex justify-end">
-                            <SwiperButtonNext onClick={() => selectExample(input)}>다음</SwiperButtonNext>
-                        </div>
+                    <SwiperSlide key="input-slide">
+                        <InputSlide input={input} setInput={setInput} selectExample={selectExample} />
                     </SwiperSlide>
-
-                    <SwiperSlide>
-                        {isLoadingExample ? (  // 로딩 상태일 때 로딩 표시
-                            <div>Loading...</div>
-                        ) : isExampleLoaded && example ? (  // 로딩 완료 후 데이터를 렌더링
-                            <>
-                                <h2 className="text-2xl font-bold mb-4">{example.title}에 대한 설명 스타일을 선택하세요</h2>
-                                <div className="flex flex-wrap gap-4">
-                                    {example.examples.map((explanation) => (
-                                        <label key={explanation.style} className="border border-gray-300 rounded p-4 w-60 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="mb-2"
-                                                checked={selectedStyles.includes(explanation.style)}
-                                                onChange={() => handleCheckboxChange(explanation.style)}
-                                            />
-                                            <h3 className="text-lg font-semibold mb-2">{explanation.style}</h3>
-                                            <p className="text-gray-600">{explanation.content}</p>
-                                        </label>
-                                    ))}
-                                </div>
-                                <div className="flex justify-between mt-4">
-                                    <SwiperButtonPrev>이전</SwiperButtonPrev>
-                                    <SwiperButtonNext onClick={() => fetchCurriculumData()}>다음</SwiperButtonNext>
-                                </div>
-                            </>
-                        ) : (
-                            <div>예제를 선택하세요.</div> // 예제를 선택하기 전 상태
-                        )}
+                    <SwiperSlide key="example-slide">
+                        <ExampleSlide
+                            example={example}
+                            isLoadingExample={isLoadingExample}
+                            selectedStyles={selectedStyles}
+                            handleCheckboxChange={handleCheckboxChange}
+                            fetchCurriculumData={fetchCurriculum}
+                        />
                     </SwiperSlide>
-
-                    <SwiperSlide>
-                        <h2 className="text-2xl font-bold mb-4">커리큘럼 목차</h2>
-                        <div className="max-h-96 overflow-y-auto">
-                            {isLoading ? (
-                                <div>Loading...</div>
-                            ) : (
-                                curriculum.map((item, index) => (
-                                    <Accordion key={index} title={item.title}>
-                                        {item.subItems && renderCurriculumItems(item.subItems)}
-                                    </Accordion>
-                                ))
-                            )}
-                        </div>
-                        <div className="flex justify-between mt-4">
-                            <SwiperButtonPrev>이전</SwiperButtonPrev>
-                            <button
-                                className="px-4 py-2 bg-green-500 text-white rounded-lg focus:outline-none"
-                                onClick={handleComplete}
-                            >
-                                완료
-                            </button>
-                        </div>
+                    <SwiperSlide key="curriculum-slide">
+                        <CurriculumSlide
+                            curriculum={curriculum}
+                            isLoading={isLoading}
+                            handleComplete={handleComplete}
+                        />
                     </SwiperSlide>
                 </Swiper>
             </div>
