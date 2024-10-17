@@ -1,0 +1,43 @@
+/* styles.css */
+
+/* Module 배경색 */
+.module-background {
+    background-color: #e0f7fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  
+  /* Lesson 배경색 */
+  .lesson-background {
+    background-color: #fff9c4;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  
+  /* Topic 배경색 */
+  .topic-background {
+    background-color: #ffe0b2;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+  }
+  
+  /* 모듈 제목 스타일 */
+  .module-title {
+    font-weight: bold;
+    color: #00796b;
+  }
+  
+  /* 레슨 제목 스타일 */
+  .lesson-title {
+    font-weight: bold;
+    color: #f57f17;
+  }
+  
+  /* 토픽 제목 스타일 */
+  .topic-item strong {
+    color: #d84315;
+  }
+  
