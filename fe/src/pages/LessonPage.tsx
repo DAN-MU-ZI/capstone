@@ -9,27 +9,27 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 // 데이터 타입 정의
 interface Topic {
     uuid: string;
-    name: string;
+    title: string;
     content: string;
     isImportant?: boolean;  // 중요 여부 표시 (선택적)
 }
 
 interface Lesson {
     uuid: string;
-    lesson_name: string;
+    title: string;
     description: string;
     topics: Topic[];
 }
 
 interface Module {
     uuid: string;
-    module_name: string;
+    title: string;
     lessons: Lesson[];
 }
 
 interface Subject {
     uuid: string;
-    subject_name: string;
+    title: string;
     modules: Module[];
 }
 
@@ -130,7 +130,7 @@ const LessonPage: React.FC = () => {
             {/* 좌측 아코디언 네비게이션 - 상태에 따라 보이거나 숨김 */}
             {showAccordion && subject.modules && (
                 <aside className="w-1/4 p-4 bg-gray-100 overflow-y-auto">
-                    <h2 className="text-xl font-bold mb-4">{subject.subject_name}</h2>
+                    <h2 className="text-xl font-bold mb-4">{subject.title}</h2>
                     {/* Subject -> Modules -> Lessons -> Topics 아코디언 */}
                     {subject.modules.map((module: Module) => (
                         <Accordion
@@ -143,7 +143,7 @@ const LessonPage: React.FC = () => {
                                 className={`${highlightedModule === module.uuid ? 'bg-blue-300 text-blue-900' : 'bg-blue-200'
                                     } text-md font-semibold`}
                             >
-                                {module.module_name}
+                                {module.title}
                             </AccordionSummary>
                             <AccordionDetails className="bg-white">
                                 {module.lessons && module.lessons.map((lesson: Lesson) => (
@@ -153,7 +153,7 @@ const LessonPage: React.FC = () => {
                                                 }`}
                                             onClick={() => handleLessonClick(lesson)}
                                         >
-                                            {lesson.lesson_name}
+                                            {lesson.title}
                                         </button>
                                     </div>
                                 ))}
@@ -183,7 +183,7 @@ const LessonPage: React.FC = () => {
                     {/* 헤더 섹션 */}
                     <header className="bg-gray-800 text-white py-6 shadow-md">
                         <div className="container mx-auto px-4">
-                            <h1 className="text-3xl font-bold">{lesson.lesson_name}</h1>
+                            <h1 className="text-3xl font-bold">{lesson.title}</h1>
                             <p className="text-lg text-gray-300">{lesson.description}</p>
                         </div>
                     </header>
@@ -194,7 +194,7 @@ const LessonPage: React.FC = () => {
                         <ul className="list-disc ml-6">
                             {lesson.topics.map((topic: Topic) => (
                                 <li key={topic.uuid} className="mb-2">
-                                    <strong>{topic.name}:</strong> {topic.content}
+                                    <strong>{topic.title}:</strong> {topic.content}
                                 </li>
                             ))}
                         </ul>

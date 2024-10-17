@@ -6,6 +6,7 @@ import Footer from './components/Footer';
 import Header from './components/Header';
 import Flow from './pages/Flow';
 import LessonPage from './pages/LessonPage';
+import MyPage from './pages/MyPage';
 
 const App: React.FC = () => {
   return (
@@ -15,7 +16,8 @@ const App: React.FC = () => {
         {/* Onboarding, Library, Flow, LessonPage로 라우팅 설정 */}
         <Route path="/" element={<Onboarding />} />
         <Route path="/library" element={<Library />} />
-        <Route path='/flow' element={<Flow />} />
+        <Route path="/flow/:programId" element={<Flow />} />
+        <Route path="/my" element={<MyPage />} />
         <Route path="/lesson/:lessonId" element={<LessonPage />} />
       </Routes>
       <Footer />

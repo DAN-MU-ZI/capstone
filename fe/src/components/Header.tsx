@@ -37,8 +37,8 @@ const Header: React.FC = () => {
                         </Link>
                     </li>
                     <li>
-                        <Link to="/flow" className="hover:text-blue-500">
-                            Flow
+                        <Link to="/my" className="hover:text-blue-500">
+                            My
                         </Link>
                     </li>
                     {/* 필요에 따라 다른 네비게이션 링크 추가 가능 */}

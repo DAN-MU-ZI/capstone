@@ -1,13 +1,13 @@
 import React, { useState, MouseEvent } from 'react';
 import ReactFlow, { Node, Edge, useNodesState, useEdgesState } from 'react-flow-renderer';
-import { useNavigate, Outlet } from 'react-router-dom';  // 중첩된 라우팅을 위한 Outlet 사용
+import { useNavigate } from 'react-router-dom';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import './styles.css';  // 스타일 파일
+import './styles.css';
+import { getData } from '../dataService';
 
-const data = require('./data.json');
 
 // 각 레벨에 대한 TypeScript 타입 정의
 interface Topic {
@@ -18,8 +18,8 @@ interface Topic {
 
 interface Lesson {
     uuid: string;
-    lesson_name: string;
-    lesson_order: number;
+    title: string;
+    order: number;
     is_mandatory: boolean;
     description: string;
     topics: Topic[];
@@ -27,8 +27,8 @@ interface Lesson {
 
 interface Module {
     uuid: string;
-    module_name: string;
-    module_order: number;
+    title: string;
+    order: number;
     is_mandatory: boolean;
     description: string;
     lessons: Lesson[];
@@ -36,37 +36,36 @@ interface Module {
 
 interface Subject {
     uuid: string;
-    subject_name: string;
-    subject_order: number;
+    title: string;
+    order: number;
     is_mandatory: boolean;
     description: string;
     modules: Module[];
 }
 
-const createNodesAndEdges = (data: any) => {
+const createNodesAndEdges = () => {
+    const data = getData();
     const nodes: Node[] = [];
     const edges: Edge[] = [];
-    let yOffset = 0; // 각 노드의 y좌표
+    let yOffset = 0;
 
-    // 재귀적으로 데이터를 탐색하며 노드와 엣지를 생성하는 함수
-    const traverse = (parentId: string | null, nodeData: any, level: number) => {
+    const traverse = (parentId: string | null, nodeData: any, level: number, type: string) => {
         let nodeId = '';
         let label = '';
         let childrenKey = '';
 
-        // nodeData가 subject인지, curriculum인지, program인지를 체크
-        if (nodeData.subject_name) {
-            nodeId = nodeData.uuid;
-            label = nodeData.subject_name;
-            childrenKey = '';  // subject 단계에서 더 이상 하위 항목이 없음
-        } else if (nodeData.curriculum_name) {
-            nodeId = nodeData.uuid;
-            label = nodeData.curriculum_name;
-            childrenKey = 'subjects';  // curriculum의 하위 항목은 subjects
-        } else if (nodeData.title) {
+        // 데이터의 구조를 기반으로 어떤 단계인지 확인
+        if (type === 'programs') {
             nodeId = nodeData.uuid;
             label = nodeData.title;
-            childrenKey = 'curriculums';  // 프로그램의 하위 항목은 curriculums
+            childrenKey = 'curriculums';  // program 단계의 하위는 curriculums
+        } else if (type === 'curriculums') {
+            nodeId = nodeData.uuid;
+            label = nodeData.title;
+            childrenKey = 'subjects';  // curriculum 단계의 하위는 subjects
+        } else if (type === 'subjects') {
+            nodeId = nodeData.uuid;
+            label = nodeData.title;
         } else {
             console.error("Unknown data structure", nodeData);
             return;
@@ -80,7 +79,7 @@ const createNodesAndEdges = (data: any) => {
             position: { x: level * 300, y: yOffset },
         });
 
-        // 부모가 있으면 엣지를 추가 (부모-자식 관계)
+        // 엣지 추가
         if (parentId) {
             edges.push({
                 id: `edge-${parentId}-${nodeId}`,
@@ -90,43 +89,39 @@ const createNodesAndEdges = (data: any) => {
             });
         }
 
-        // yOffset 증가
         yOffset += 150;
 
-        // 자식 항목이 있으면 재귀적으로 탐색 (module과 lesson은 제외)
+        // 자식 항목이 있으면 재귀적으로 탐색 (subject까지만)
         if (childrenKey && nodeData[childrenKey]) {
             nodeData[childrenKey].forEach((child: any) => {
-                traverse(nodeId, child, level + 1);  // 재귀적으로 하위 항목 탐색
+                traverse(nodeId, child, level + 1, childrenKey);
             });
         }
     };
 
-    // 최상위 항목이 복수형 배열일 경우 탐색 시작
-    const topLevelKey = Object.keys(data)[0];  // 복수형 키를 가져옴 (예: 'programs')
-    const topLevelData = data[topLevelKey];    // 복수형 배열 데이터를 가져옴
+    // 최상위 항목을 유연하게 처리
+    const topLevelKey = Object.keys(data)[0];
+    const topLevelData = data[topLevelKey];
 
-    // 최상위 항목을 순회하며 재귀적으로 노드와 엣지를 생성
     topLevelData.forEach((item: any) => {
-        traverse(null, item, 0);  // 최상위 항목은 parentId가 없음
+        traverse(null, item, 0, topLevelKey);  // 최상위 항목에 대해 재귀 탐색 시작
     });
 
     return { nodes, edges };
 };
 
 
-
-
 const Flow: React.FC = () => {
-    const { nodes, edges } = createNodesAndEdges(data);
+    const { nodes, edges } = createNodesAndEdges();
     const [nodesState, setNodesState, onNodesChange] = useNodesState(nodes);
     const [edgesState, setEdgesState, onEdgesChange] = useEdgesState(edges);
     const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
-
     const navigate = useNavigate();
 
-    // 노드 클릭 이벤트 핸들러
+    // 노드 클릭 핸들러
     const onNodeClick = (event: MouseEvent, node: Node) => {
-        if (node.type === 'default' && node.data.nodeData.subject_name) {
+        console.log('Node data:', node.data.nodeData);
+        if (node.data.nodeData) {
             setSelectedSubject(node.data.nodeData as Subject);
         } else {
             setSelectedSubject(null);
@@ -157,14 +152,14 @@ const Flow: React.FC = () => {
             <div className="w-96 p-5 overflow-y-auto bg-base-200">
                 {selectedSubject ? (
                     <div className="accordion-panel">
-                        <h3 className="text-lg font-bold mb-4">{selectedSubject.subject_name} - Modules, Lessons, Topics</h3>
+                        <h3 className="text-lg font-bold mb-4">{selectedSubject.title} - Modules, Lessons</h3>
                         {selectedSubject.modules.map((module) => (
                             <Accordion key={module.uuid} className="mb-4">
                                 <AccordionSummary
                                     expandIcon={<ExpandMoreIcon />}
                                     className="bg-gray-200 text-md font-semibold"
                                 >
-                                    {module.module_name}
+                                    {module.title}
                                 </AccordionSummary>
                                 <AccordionDetails className="bg-gray-100">
                                     {module.lessons.map((lesson) => (
@@ -173,7 +168,7 @@ const Flow: React.FC = () => {
                                                 className="text-blue-600 hover:underline"
                                                 onClick={() => handleLessonClick(lesson)}
                                             >
-                                                {lesson.lesson_name}
+                                                {lesson.title}
                                             </button>
                                         </div>
                                     ))}
@@ -187,7 +182,6 @@ const Flow: React.FC = () => {
                     </div>
                 )}
             </div>
-
         </div>
     );
 };
