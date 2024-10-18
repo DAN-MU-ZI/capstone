@@ -1,4 +1,4 @@
-import React, { useState, MouseEvent } from 'react';
+import React, { useState, MouseEvent, useCallback, Children } from 'react';
 import ReactFlow, { Node, Edge, useNodesState, useEdgesState } from 'react-flow-renderer';
 import { useNavigate, useParams } from 'react-router-dom';
 import Accordion from '@mui/material/Accordion';
@@ -43,12 +43,18 @@ interface Subject {
     modules: Module[];
 }
 
+interface CustomedNode extends Node {
+    parentNode: string | undefined;
+    childrenIds: string[];
+    section: string;
+}
+
 const createNodesAndEdges = (data: any) => {
-    const nodes: Node[] = [];
+    const nodes: CustomedNode[] = [];
     const edges: Edge[] = [];
     let yOffset = 0;
 
-    const traverse = (parentId: string | null, nodeData: any, level: number, type: string) => {
+    const traverse = (parentId: string | null, parentNode: CustomedNode | null, nodeData: any, level: number, type: string) => {
         let nodeId = '';
         let label = '';
         let childrenKey = '';
@@ -70,13 +76,32 @@ const createNodesAndEdges = (data: any) => {
             return;
         }
 
+
         // 노드 생성
-        nodes.push({
-            id: nodeId,
-            type: 'default',
-            data: { label: label, nodeData: nodeData },
-            position: { x: level * 300, y: yOffset },
-        });
+        let node: CustomedNode;
+        if (parentNode) {
+            node = {
+                id: nodeId,
+                type: 'default',
+                data: { label: label, nodeData: nodeData },
+                position: { x: level * 300, y: yOffset },
+                parentNode: parentNode.id,
+                childrenIds: [],
+                section: type,
+            };
+            parentNode.childrenIds.push(nodeId);
+        } else {
+            node = {
+                id: nodeId,
+                type: 'default',
+                data: { label: label, nodeData: nodeData },
+                position: { x: level * 300, y: yOffset },
+                childrenIds: [],
+                parentNode: undefined,
+                section: type,
+            };
+        }
+        nodes.push(node);
 
         // 엣지 추가
         if (parentId) {
@@ -93,7 +118,7 @@ const createNodesAndEdges = (data: any) => {
         // 자식 항목이 있으면 재귀적으로 탐색 (subject까지만)
         if (childrenKey && nodeData[childrenKey]) {
             nodeData[childrenKey].forEach((child: any) => {
-                traverse(nodeId, child, level + 1, childrenKey);
+                traverse(nodeId, node, child, level + 1, childrenKey);
             });
         }
     };
@@ -103,7 +128,7 @@ const createNodesAndEdges = (data: any) => {
     const topLevelData = data[topLevelKey];
 
     topLevelData.forEach((item: any) => {
-        traverse(null, item, 0, topLevelKey);  // 최상위 항목에 대해 재귀 탐색 시작
+        traverse(null, null, item, 0, topLevelKey);  // 최상위 항목에 대해 재귀 탐색 시작
     });
 
     return { nodes, edges };
@@ -122,12 +147,102 @@ const Flow: React.FC = () => {
     const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
     const navigate = useNavigate();
 
+    // 클릭시 하위 노드 숨기거나 다시 보이기
+    const toggleNodeCollapse = useCallback(
+        (node: CustomedNode) => {
+            if (node.section === 'programs') {
+                const filteredEdges: string[] = [];
+
+                nodesState.forEach((n) => {
+                    if (n.parentNode === node.id) {
+                        filteredEdges.push(`edge-${node.id}-${n.id}`);
+                    }
+                });
+
+                const curriculums = node.childrenIds;
+                nodesState.filter((n) => n.parentNode === node.id)
+                    .forEach((n) => {
+                        const customedNode = n as CustomedNode;
+                        customedNode.childrenIds.forEach((childId) => {
+                            filteredEdges.push(`edge-${n.id}-${childId}`);
+                        });
+                    });
+                const subjects = nodesState.filter((n) => n.parentNode && curriculums.includes(n.parentNode)).map((n) => n.id);
+
+                const children = [...curriculums, ...subjects];
+
+                ;
+
+                setNodesState((oldNodes) =>
+                    oldNodes.map((n) => {
+                        if (children.includes(n.id)) {
+                            return { ...n, hidden: !n.hidden };
+                        }
+
+                        return n;
+                    })
+                );
+
+                setEdgesState((oldEdges) =>
+                    oldEdges.map((e) => {
+                        console.log(filteredEdges.includes(e.id));
+                        if (filteredEdges.includes(e.id)) {
+                            console.log('filtered edge', e.id);
+                            return { ...e, hidden: !e.hidden };
+                        }
+
+                        return e;
+                    })
+                );
+            } else if (node.section === 'curriculums') {
+                const filteredEdges: string[] = [];
+
+                nodesState.forEach((n) => {
+                    if (n.parentNode === node.id) {
+                        filteredEdges.push(`edge-${node.id}-${n.id}`);
+                    }
+                });
+
+                const subjects = node.childrenIds;
+                const children = subjects;
+
+                setNodesState((oldNodes) =>
+                    oldNodes.map((n) => {
+                        if (children.includes(n.id)) {
+                            return { ...n, hidden: !n.hidden };
+                        }
+
+                        return n;
+                    })
+                );
+
+                setEdgesState((oldEdges) =>
+                    oldEdges.map((e) => {
+                        console.log(filteredEdges.includes(e.id));
+                        if (filteredEdges.includes(e.id)) {
+                            console.log('filtered edge', e.id);
+                            return { ...e, hidden: !e.hidden };
+                        }
+
+                        return e;
+                    })
+                );
+            }
+        },
+        [nodes, edges, setNodesState, setEdgesState]
+    );
+
     // 노드 클릭 핸들러
     const onNodeClick = (event: MouseEvent, node: Node) => {
-        if (node.data.nodeData) {
+        if (node.data.nodeData.modules) {
             setSelectedSubject(node.data.nodeData as Subject);
         } else {
             setSelectedSubject(null);
+        }
+
+        const customedNode = node as CustomedNode;
+        if (customedNode.section === 'programs' || customedNode.section === 'curriculums') {
+            toggleNodeCollapse(customedNode);
         }
     };
 
