@@ -1,6 +1,6 @@
 import React, { useState, MouseEvent } from 'react';
 import ReactFlow, { Node, Edge, useNodesState, useEdgesState } from 'react-flow-renderer';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -43,8 +43,7 @@ interface Subject {
     modules: Module[];
 }
 
-const createNodesAndEdges = () => {
-    const data = getData();
+const createNodesAndEdges = (data: any) => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
     let yOffset = 0;
@@ -112,7 +111,12 @@ const createNodesAndEdges = () => {
 
 
 const Flow: React.FC = () => {
-    const { nodes, edges } = createNodesAndEdges();
+    const { programId } = useParams<{ programId: string }>();
+    const data = getData(Number(programId));
+
+    // 노드 및 엣지 생성
+    const { nodes, edges } = createNodesAndEdges(data);
+
     const [nodesState, setNodesState, onNodesChange] = useNodesState(nodes);
     const [edgesState, setEdgesState, onEdgesChange] = useEdgesState(edges);
     const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
@@ -120,7 +124,6 @@ const Flow: React.FC = () => {
 
     // 노드 클릭 핸들러
     const onNodeClick = (event: MouseEvent, node: Node) => {
-        console.log('Node data:', node.data.nodeData);
         if (node.data.nodeData) {
             setSelectedSubject(node.data.nodeData as Subject);
         } else {

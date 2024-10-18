@@ -43,7 +43,7 @@ const LessonPage: React.FC = () => {
     const subject = location.state?.subject;
 
     // 아코디언 네비게이션 상태 (보이거나 숨김 처리)
-    const [showAccordion, setShowAccordion] = useState<boolean>(true);
+    const [showAccordion, setShowAccordion] = useState<boolean>(false);
 
     // 좌측 아코디언에서의 펼침 상태와 하이라이팅 상태 관리
     const [expanded, setExpanded] = useState<string | false>(false);
@@ -164,7 +164,7 @@ const LessonPage: React.FC = () => {
             )}
 
             {/* 선택된 Lesson 정보 영역을 감싸는 컨텐츠 영역 */}
-            <div className={`flex items-center ${showAccordion ? 'w-3/4' : 'w-full'} p-6 relative`}>
+            <div className={`flex-grow ${showAccordion ? 'w-3/4' : 'w-full'} p-6 relative`}>
                 {/* 이전 버튼 */}
                 <button
                     className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white p-3 rounded-full"
@@ -179,7 +179,7 @@ const LessonPage: React.FC = () => {
                 </button>
 
                 {/* 선택된 Lesson 정보 */}
-                <div className="flex-grow">
+                <div className="flex flex-col">
                     {/* 헤더 섹션 */}
                     <header className="bg-gray-800 text-white py-6 shadow-md">
                         <div className="container mx-auto px-4">
@@ -188,7 +188,7 @@ const LessonPage: React.FC = () => {
                         </div>
                     </header>
 
-                    {/* 메인 컨텐츠 */}
+                    {/* 메인 컨텐츠 - Flex와 items-center 제거로 상단 배치 */}
                     <main className="container mx-auto mt-8 px-4">
                         <h2 className="text-xl font-bold mb-4">Topics</h2>
                         <ul className="list-disc ml-6">

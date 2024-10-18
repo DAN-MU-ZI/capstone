@@ -1,17 +1,28 @@
 // dataService.ts
 
-// 데이터를 JSON 파일로부터 가져옴 (파일 시스템이나 임의의 데이터 반환)
-const data = require('./data2.json');  // 실제 데이터가 저장된 파일 경로
+// 여러 개의 데이터 파일을 배열로 관리
+const data1 = require('./data.json');
+const data2 = require('./data2.json');
+const dataStore = [data1, data2];
 
-// 데이터를 가져오는 함수
-export const getData = () => {
-    return data;  // 데이터를 반환
+// 인덱스를 통해 데이터를 반환하는 함수
+export const getData = (index: number) => {
+    if (index >= 0 && index < dataStore.length) {
+        return dataStore[index];  // 올바른 인덱스일 경우 해당 데이터를 반환
+    } else {
+        throw new Error('Invalid index provided');
+    }
 };
 
-// 개별 프로그램을 가져오는 함수 (필요시)
-export const getProgramById = (programId: string) => {
-    const programs = data.programs || [];
-    return programs.find((program: any) => program.uuid === programId);
+// 데이터 목록의 정보를 반환하는 함수
+export const getDataList = () => {
+    return dataStore.map((data, index) => {
+        const { title, description } = data;
+        return {
+            id: index,
+            name: `Data ${index + 1}`,
+            title: title || `Title ${index + 1}`,
+            description: description || `Description ${index + 1}`
+        };
+    });
 };
-
-// 필요시 더 세부적으로 데이터를 반환하는 함수 추가 가능
