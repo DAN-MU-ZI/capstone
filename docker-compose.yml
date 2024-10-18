@@ -1,0 +1,17 @@
+version: '1.0'
+services:
+  frontend:
+    build:
+      context: ./fe
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./fe:/app  # 로컬 디렉토리(프로젝트 루트)를 컨테이너의 /app 디렉토리에 마운트
+      - /app/node_modules  # node_modules는 컨테이너 내에서 관리
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
