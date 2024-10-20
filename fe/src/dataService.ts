@@ -1,28 +1,50 @@
 // dataService.ts
 
-// 여러 개의 데이터 파일을 배열로 관리
-const data1 = require('./data.json');
-const data2 = require('./data2.json');
-const dataStore = [data1, data2];
+import axios from 'axios';  // API 요청 시 사용하는 라이브러리
+const BASE_URL = 'http://localhost:8000/api';  // API의 기본 URL
 
-// 인덱스를 통해 데이터를 반환하는 함수
-export const getData = (index: number) => {
-    if (index >= 0 && index < dataStore.length) {
-        return dataStore[index];  // 올바른 인덱스일 경우 해당 데이터를 반환
-    } else {
-        throw new Error('Invalid index provided');
+// API 요청 함수의 구조처럼, MongoDB와의 상호작용을 독립적으로 처리
+
+// Book 생성
+export const createBook = async (bookData: any) => {
+    try {
+        const response = await axios.post(`${BASE_URL}/books`, bookData);  // API 요청처럼 처리
+        return response.data;  // 응답 데이터를 반환
+    } catch (error) {
+        console.error('Error creating book:', error);
+        throw error;  // 에러를 상위로 전파
     }
 };
 
-// 데이터 목록의 정보를 반환하는 함수
-export const getDataList = () => {
-    return dataStore.map((data, index) => {
-        const { title, description } = data;
-        return {
-            id: index,
-            name: `Data ${index + 1}`,
-            title: title || `Title ${index + 1}`,
-            description: description || `Description ${index + 1}`
-        };
-    });
+// 모든 Book 조회
+export const getBooks = async () => {
+    try {
+        const response = await axios.get(`${BASE_URL}/books`);  // API 요청처럼 처리
+        return response.data;  // 응답 데이터를 반환
+    } catch (error) {
+        console.error('Error fetching books:', error);
+        throw error;  // 에러를 상위로 전파
+    }
+};
+
+// 특정 Book 조회
+export const getBookById = async (bookId: string) => {
+    try {
+        const response = await axios.get(`${BASE_URL}/books/${bookId}`);  // API 요청처럼 처리
+        return response.data;  // 응답 데이터를 반환
+    } catch (error) {
+        console.error(`Error fetching book with id ${bookId}:`, error);
+        throw error;  // 에러를 상위로 전파
+    }
+};
+
+// 특정 Book 삭제
+export const deleteBookById = async (bookId: string) => {
+    try {
+        const response = await axios.delete(`${BASE_URL}/books/${bookId}`);  // API 요청처럼 처리
+        return response.data;  // 삭제된 결과 반환
+    } catch (error) {
+        console.error(`Error deleting book with id ${bookId}:`, error);
+        throw error;  // 에러를 상위로 전파
+    }
 };

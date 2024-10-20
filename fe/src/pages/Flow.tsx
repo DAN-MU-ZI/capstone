@@ -1,4 +1,4 @@
-import React, { useState, MouseEvent, useCallback, Children } from 'react';
+import React, { useState, useEffect, MouseEvent, useCallback } from 'react';
 import ReactFlow, { Node, Edge, useNodesState, useEdgesState } from 'react-flow-renderer';
 import { useNavigate, useParams } from 'react-router-dom';
 import Accordion from '@mui/material/Accordion';
@@ -6,8 +6,7 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import './styles.css';
-import { getData } from '../dataService';
-
+import { getBookById } from '../dataService';  // 데이터를 가져오는 함수
 
 // 각 레벨에 대한 TypeScript 타입 정의
 interface Topic {
@@ -59,7 +58,6 @@ const createNodesAndEdges = (data: any) => {
         let label = '';
         let childrenKey = '';
 
-        // 데이터의 구조를 기반으로 어떤 단계인지 확인
         if (type === 'programs') {
             nodeId = nodeData.uuid;
             label = nodeData.title;
@@ -75,7 +73,6 @@ const createNodesAndEdges = (data: any) => {
             console.error("Unknown data structure", nodeData);
             return;
         }
-
 
         // 노드 생성
         let node: CustomedNode;
@@ -137,15 +134,35 @@ const createNodesAndEdges = (data: any) => {
 
 const Flow: React.FC = () => {
     const { programId } = useParams<{ programId: string }>();
-    const data = getData(Number(programId));
+    const [loading, setLoading] = useState<boolean>(true);  // 로딩 상태 추가
+    const [error, setError] = useState<string | null>(null);  // 에러 상태 추가
 
-    // 노드 및 엣지 생성
-    const { nodes, edges } = createNodesAndEdges(data);
-
-    const [nodesState, setNodesState, onNodesChange] = useNodesState(nodes);
-    const [edgesState, setEdgesState, onEdgesChange] = useEdgesState(edges);
+    const [nodesState, setNodesState, onNodesChange] = useNodesState([]);
+    const [edgesState, setEdgesState, onEdgesChange] = useEdgesState([]);
     const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
     const navigate = useNavigate();
+
+    // 데이터를 가져오는 비동기 함수
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                if (!programId) {
+                    throw new Error('Program ID is undefined');
+                }
+                const response = await getBookById(programId);  // API를 통해 데이터 가져오기
+                const { nodes, edges } = createNodesAndEdges(response);  // 노드와 엣지 생성
+                setNodesState(nodes);  // 노드 상태 업데이트
+                setEdgesState(edges);  // 엣지 상태 업데이트
+                setLoading(false);  // 로딩 완료
+            } catch (err) {
+                console.error('데이터 로드 실패:', err);
+                setError('데이터를 가져오는 중 문제가 발생했습니다.');
+                setLoading(false);  // 에러가 있어도 로딩 완료
+            }
+        };
+
+        fetchData();
+    }, [programId, setNodesState, setEdgesState]);
 
     // 클릭시 하위 노드 숨기거나 다시 보이기
     const toggleNodeCollapse = useCallback(
@@ -171,26 +188,20 @@ const Flow: React.FC = () => {
 
                 const children = [...curriculums, ...subjects];
 
-                ;
-
                 setNodesState((oldNodes) =>
                     oldNodes.map((n) => {
                         if (children.includes(n.id)) {
                             return { ...n, hidden: !n.hidden };
                         }
-
                         return n;
                     })
                 );
 
                 setEdgesState((oldEdges) =>
                     oldEdges.map((e) => {
-                        console.log(filteredEdges.includes(e.id));
                         if (filteredEdges.includes(e.id)) {
-                            console.log('filtered edge', e.id);
                             return { ...e, hidden: !e.hidden };
                         }
-
                         return e;
                     })
                 );
@@ -211,25 +222,21 @@ const Flow: React.FC = () => {
                         if (children.includes(n.id)) {
                             return { ...n, hidden: !n.hidden };
                         }
-
                         return n;
                     })
                 );
 
                 setEdgesState((oldEdges) =>
                     oldEdges.map((e) => {
-                        console.log(filteredEdges.includes(e.id));
                         if (filteredEdges.includes(e.id)) {
-                            console.log('filtered edge', e.id);
                             return { ...e, hidden: !e.hidden };
                         }
-
                         return e;
                     })
                 );
             }
         },
-        [nodes, edges, setNodesState, setEdgesState]
+        [nodesState, setNodesState, setEdgesState]
     );
 
     // 노드 클릭 핸들러
@@ -251,6 +258,14 @@ const Flow: React.FC = () => {
             navigate(`/lesson/${lesson.uuid}`, { state: { lesson, subject: selectedSubject } });
         }
     };
+
+    if (loading) {
+        return <div>Loading...</div>;
+    }
+
+    if (error) {
+        return <div>{error}</div>;
+    }
 
     return (
         <div className="flex h-screen w-full">

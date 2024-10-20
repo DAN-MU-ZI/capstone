@@ -5,7 +5,7 @@ from dto import *
 
 def create_example(input_data: ExampleInput):
     example = {
-        "title": "React",
+        "title": "React의 개념",
         "examples": [
             {
                 "style": "간결하고 직관적인 설명",
@@ -32,16 +32,16 @@ def create_example(input_data: ExampleInput):
 def create_curriculum(input_data: StylesInput):
     data = [
         {
-            "title": "1. 하이버네이트 소개",
+            "title": "1. React 소개",
             "subItems": [
-                {"title": "1.1 하이버네이트란?"},
-                {"title": "1.2 하이버네이트의 역사"},
-                {"title": "1.3 하이버네이트의 장점"},
+                {"title": "1.1 React란?"},
+                {"title": "1.2 React의 장점"},
+                {"title": "1.3 React의 역사"},
                 {
-                    "title": "1.4 하이버네이트 최신 버전",
+                    "title": "1.4 React 최신 버전",
                     "subItems": [
-                        {"title": "1.4.1 Hibernate ORM 5.6.10.Final"},
-                        {"title": "1.4.2 Java 17 호환성"},
+                        {"title": "1.4.1 React 18"},
+                        {"title": "1.4.2 새로운 기능"},
                     ],
                 },
             ],
@@ -50,24 +50,24 @@ def create_curriculum(input_data: StylesInput):
             "title": "2. 설치 및 환경 설정",
             "subItems": [
                 {
-                    "title": "2.1 하이버네이트 설치",
+                    "title": "2.1 React 설치",
                     "subItems": [
-                        {"title": "2.1.1 Maven을 통한 설치"},
-                        {"title": "2.1.2 Gradle을 통한 설치"},
+                        {"title": "2.1.1 npm을 통한 설치"},
+                        {"title": "2.1.2 yarn을 통한 설치"},
                     ],
                 },
                 {
-                    "title": "2.2 데이터베이스 설정",
+                    "title": "2.2 개발 환경 설정",
                     "subItems": [
-                        {"title": "2.2.1 데이터베이스 드라이버 설정"},
-                        {"title": "2.2.2 Hibernate 설정 파일 (hibernate.cfg.xml)"},
+                        {"title": "2.2.1 코드 편집기 설정"},
+                        {"title": "2.2.2 ESLint와 Prettier 설정"},
                     ],
                 },
                 {
                     "title": "2.3 통합 개발 환경(IDE) 설정",
                     "subItems": [
-                        {"title": "2.3.1 Eclipse 설정"},
-                        {"title": "2.3.2 IntelliJ IDEA 설정"},
+                        {"title": "2.3.1 Visual Studio Code 설정"},
+                        {"title": "2.3.2 WebStorm 설정"},
                     ],
                 },
             ],
@@ -91,13 +91,40 @@ def get_books():
                     "subItems": [
                         {"title": "1.1 React란?"},
                         {"title": "1.2 React의 장점"},
+                        {"title": "1.3 React의 역사"},
+                        {
+                            "title": "1.4 React 최신 버전",
+                            "subItems": [
+                                {"title": "1.4.1 React 18"},
+                                {"title": "1.4.2 새로운 기능"},
+                            ],
+                        },
                     ],
                 },
                 {
-                    "title": "2. React 심화",
+                    "title": "2. 설치 및 환경 설정",
                     "subItems": [
-                        {"title": "2.1 Hooks"},
-                        {"title": "2.2 컴포넌트 상태 관리"},
+                        {
+                            "title": "2.1 React 설치",
+                            "subItems": [
+                                {"title": "2.1.1 npm을 통한 설치"},
+                                {"title": "2.1.2 yarn을 통한 설치"},
+                            ],
+                        },
+                        {
+                            "title": "2.2 개발 환경 설정",
+                            "subItems": [
+                                {"title": "2.2.1 코드 편집기 설정"},
+                                {"title": "2.2.2 ESLint와 Prettier 설정"},
+                            ],
+                        },
+                        {
+                            "title": "2.3 통합 개발 환경(IDE) 설정",
+                            "subItems": [
+                                {"title": "2.3.1 Visual Studio Code 설정"},
+                                {"title": "2.3.2 WebStorm 설정"},
+                            ],
+                        },
                     ],
                 },
             ],
