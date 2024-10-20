@@ -18,7 +18,6 @@ const MyPage: React.FC = () => {
             try {
                 const data = await getBooks();  // MongoDB에서 Book 데이터를 가져옴
                 setDataList(data);  // 가져온 데이터를 상태에 저장
-                console.log('Data fetched:', data);
             } catch (error) {
                 console.error('데이터 가져오기 실패:', error);
                 setError('Failed to fetch data');  // 에러 발생 시 에러 상태 업데이트

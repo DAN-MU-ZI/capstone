@@ -150,7 +150,7 @@ const Flow: React.FC = () => {
                     throw new Error('Program ID is undefined');
                 }
                 const response = await getBookById(programId);  // API를 통해 데이터 가져오기
-                const { nodes, edges } = createNodesAndEdges(response);  // 노드와 엣지 생성
+                const { nodes, edges } = createNodesAndEdges(response.content);  // 노드와 엣지 생성
                 setNodesState(nodes);  // 노드 상태 업데이트
                 setEdgesState(edges);  // 엣지 상태 업데이트
                 setLoading(false);  // 로딩 완료
