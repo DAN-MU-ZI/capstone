@@ -1,24 +1,37 @@
 import os
 import uuid
 import requests
-import html
+import logging
 import nest_asyncio
-from typing import List, Dict, Any, TypedDict, Optional, Literal, Union, Annotated
+import asyncio
+
+from typing import List, Literal, Any, TypedDict
+
 from pydantic import BaseModel, Field
+
 from langchain.chains import create_extraction_chain
-from langchain.prompts import PromptTemplate
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from langchain_community.document_loaders import AsyncChromiumLoader
-from langchain_community.document_transformers import BeautifulSoupTransformer
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langgraph.graph import StateGraph, END
+from langchain.prompts import PromptTemplate, ChatPromptTemplate
+
+from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 
-os.environ["OPENAI_API_KEY"] = (
-    "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"
-)
-os.environ["OPENAI_MODEL_NAME"] = "gpt-4o-mini"
+from langchain_openai import ChatOpenAI
+
+from langchain_community.document_loaders import AsyncChromiumLoader
+from langchain_community.document_transformers import BeautifulSoupTransformer
+
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from dotenv import load_dotenv
+
+load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("WebSocket")
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL_NAME = os.getenv("OPENAI_MODEL_NAME")
+CSE_API_KEY = os.getenv("CSE_API_KEY")
+CSE_ID = os.getenv("CSE_ID")
 
 nest_asyncio.apply()
 
@@ -50,13 +63,21 @@ CURRICULUM_SUMMARY = """
 - 예시: `ORM이란?`, `@Entity 어노테이션 사용법`
 """
 
-CATEGORIES = ("program", "curriculum", "subject", "module", "lesson", "topic", "none")
+CATEGORIES = (
+    "programs",
+    "curriculums",
+    "subjects",
+    "modules",
+    "lessons",
+    "topics",
+    "none",
+)
 
 
 class State(TypedDict):
     input: str
     goal: str
-    category: Literal[CATEGORIES]
+    category: Literal[CATEGORIES]  # type: ignore
     example: Any
     llm_styles: List[str]
     extracted_insights: Any
@@ -64,15 +85,21 @@ class State(TypedDict):
     styles: List[str]
     selected_styles: Any
     blogs: List[str]
-    prev: Any
     result: Any
+    programs: Any
+    curriculums: Any
+    subjects: Any
+    modules: Any
+    lessons: Any
+    topics: Any
+    info: str
 
 
 def classify_input(state):
     class Result(BaseModel):
         goal: str = Field(..., description="문장의 제목")
         content: str = Field(..., description="제목의 내용")
-        category: Literal[CATEGORIES] = Field(
+        category: Literal["programs", "curriculums", "subjects", "modules", "lessons", "topics", "none"] = Field(  # type: ignore
             ..., description="제목이 속하는 교육 프로그램 계층"
         )
 
@@ -86,9 +113,9 @@ def classify_input(state):
         사용자 입력:
         {input}
     
-        문장을 읽고 그에 해당하는 계층을 아래에서 선택하세요: program, curriculum, subject, module, lesson, topic, none
+        문장을 읽고 그에 해당하는 계층을 아래에서 선택하세요: programs, curriculums, subjects, modules, lessons, topicss, none
         선택한 계층에 대해 제목과 내용을 작성하세요.
-        'Result' 의 속성이 모두 포함되어야 합니다.
+        'Result' 의 속성을 참고하세요.
         사용자 입력이 협소적이지 않다면, topic은 지양하세요.
         """
     )
@@ -109,10 +136,10 @@ def classify_input(state):
     object = dict()
     object["uuid"] = str(uuid.uuid4())
     object["title"] = res["goal"]
-    object["content"] = res["content"]
+    object["description"] = res["content"]
+    state["info"] = object
 
-    state["result"] = {"start": {state["category"]: [object]}}
-    state["prev"] = state["result"]
+    state[state["category"]] = {state["category"]: [object]}
 
     return state
 
@@ -122,7 +149,6 @@ def select_example(state):
         subject: str = Field(..., description="주제에 대해 설명할 일부 소주제")
         description: str = Field(..., description="소주제에 대한 간략한 설명")
 
-    goal = state["goal"]
     template = """
     주어진 목표에 대해 사용자가 학습하기위한 자료를 만드려고 합니다.
     학습 자료는 책의 일부에서 설명할만한 내용같은 느낌입니다.
@@ -178,9 +204,6 @@ def recommend_style_by_llm(state):
 
 
 def scrap_blog(state):
-    CSE_API_KEY = "AIzaSyALUNIForxeh6w4caHJqCO8AgHJlKlqa60"
-    CSE_ID = "c70b9a47bae9d406c"
-
     query = state["goal"]
 
     sites = ["tistory.com", "velog.io"]
@@ -196,7 +219,6 @@ def scrap_blog(state):
 
         if "items" in json_response:
             for item in json_response["items"]:
-                title = html.unescape(item["title"])
                 link = item["link"]
 
                 links.append(link)
@@ -228,7 +250,7 @@ def extract_insight(state):
         ),
     )
 
-    urls = state["blogs"]
+    urls = state["blogs"][:5]
     loader = AsyncChromiumLoader(urls)
     docs = loader.load()
     bs_transformer = BeautifulSoupTransformer()
@@ -236,17 +258,39 @@ def extract_insight(state):
         docs, tags_to_extract=["span"]
     )
 
+    # Grab the first 1000 tokens of the site
     splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
         chunk_size=1000, chunk_overlap=0
     )
     splits = splitter.split_documents(docs_transformed)
 
-    extracted_contents = []
+    # extracted_contents = []
 
-    ext_chain = create_extraction_chain(schema=schema, llm=llm, prompt=prompt_template)
-    for split in splits:
-        extracted_content = ext_chain.run(split.page_content)
-        extracted_contents.extend(extracted_content)
+    # ext_chain = create_extraction_chain(schema=schema, llm=llm, prompt=prompt_template)
+    # for split in splits:
+    #     extracted_content = ext_chain.invoke(split.page_content)
+    #     extracted_contents.extend(extracted_content)
+
+    # state["extracted_insights"] = extracted_content
+
+    async def create(chain, content):
+        return await chain.ainvoke(content)
+
+    async def gather_results():
+        tasks = []
+        for split in splits:
+            chain = create_extraction_chain(
+                schema=schema, llm=llm, prompt=prompt_template
+            )
+            tasks.append(create(chain, split))
+        task_results = await asyncio.gather(*tasks)
+        return task_results
+
+    task_results = asyncio.run(gather_results())
+
+    extracted_content = []
+    for res in task_results:
+        extracted_content.extend(res)
 
     state["extracted_insights"] = extracted_content
 
@@ -328,10 +372,10 @@ def handle_curriculum(state):
             title="커리큘럼 UUID",
             description="커리큘럼의 고유 식별자",
         )
-        curriculum_name: str = Field(
+        title: str = Field(
             ..., max_length=200, description="커리큘럼의 제목을 나타냅니다."
         )
-        curriculum_order: int = Field(
+        order: int = Field(
             ..., ge=1, description="해당 커리큘럼에서 커리큘럼의 순서를 나타냅니다."
         )
         is_mandatory: bool = Field(
@@ -358,8 +402,8 @@ def handle_curriculum(state):
         {{
             "curriculums": [
                 {{
-                    "curriculum_name": "커리큘럼명",
-                    "curriculum_order": 1,
+                    "title": "커리큘럼명",
+                    "order": 1,
                     "is_mandatory": true,
                     "description": "커리큘럼 설명"
                 }}
@@ -371,44 +415,38 @@ def handle_curriculum(state):
         
         프로그램:
         {program}
-    
-        이전 커리큘럼:
-        {prev}
         """
     )
 
     llm = ChatOpenAI(model_name="gpt-4o-mini").with_structured_output(Result)
     chain = prompt | llm
 
-    result = dict()
-    prev = None
-
-    programs = []
-    for sub in state["prev"].values():
-        programs.extend(sub)
-
-    for program in programs:
-        res = chain.invoke(
+    async def create(chain, program, goal):
+        return await chain.ainvoke(
             {
                 "program": program,
-                "goal": state.get("goal"),
-                "prev": prev,
+                "goal": goal,
             }
         )
+
+    async def gather_results():
+        tasks = []
+        programs = []
+        for sub in state["programs"].values():
+            programs.extend(sub)
+        for program in programs:
+            tasks.append(create(chain, program, state.get("goal")))
+        task_results = await asyncio.gather(*tasks)
+        return task_results, programs
+
+    task_results, programs = asyncio.run(gather_results())
+
+    result = {}
+    for program, res in zip(programs, task_results):
         curriculums = res.dict()["curriculums"]
-        result[curriculum["uuid"]] = curriculums
-        prev = curriculums
+        result[program["uuid"]] = curriculums
 
-    remap_programs = {}
-    for program in programs:
-        remap_programs[program["uuid"]] = program
-
-    for k, v in result.items():
-        remap_programs[k]["curriculums"] = v
-
-    state["prev"] = result
-
-    return state
+    return {"curriculums": result}
 
 
 def handle_subject(state):
@@ -418,10 +456,8 @@ def handle_subject(state):
             title="과목 UUID",
             description="과목의 고유 식별자",
         )
-        subject_name: str = Field(
-            ..., max_length=200, description="과목의 제목을 나타냅니다."
-        )
-        subject_order: int = Field(
+        title: str = Field(..., max_length=200, description="과목의 제목을 나타냅니다.")
+        order: int = Field(
             ..., ge=1, description="해당 과목에서 과목의 순서를 나타냅니다."
         )
         is_mandatory: bool = Field(
@@ -446,8 +482,8 @@ def handle_subject(state):
         {{
             "subjects": [
                 {{
-                    "subject_name": "과목명",
-                    "subject_order": 1,
+                    "title": "과목명",
+                    "order": 1,
                     "is_mandatory": true,
                     "description": "과목 설명"
                 }}
@@ -459,9 +495,6 @@ def handle_subject(state):
         
         과목:
         {curriculum}
-    
-        이전 과목:
-        {prev}
         """
     )
 
@@ -469,34 +502,33 @@ def handle_subject(state):
     chain = prompt | llm
 
     result = dict()
-    prev = None
 
     curriculums = []
-    for sub in state["prev"].values():
+    for sub in state["curriculums"].values():
         curriculums.extend(sub)
 
-    for subject in subjects:
-        res = chain.invoke(
+    async def create(chain, curriculum, goal):
+        return await chain.ainvoke(
             {
-                "curriculum": subject,
-                "goal": state.get("goal"),
-                "prev": prev,
+                "curriculum": curriculum,
+                "goal": goal,
             }
         )
+
+    async def gather_results():
+        tasks = []
+        for curriculum in curriculums:
+            tasks.append(create(chain, curriculum, state.get("goal")))
+        task_results = await asyncio.gather(*tasks)
+        return task_results
+
+    task_results = asyncio.run(gather_results())
+
+    for curriculum, res in zip(curriculums, task_results):
         subjects = res.dict()["subjects"]
-        result[subject["uuid"]] = subjects
-        prev = subjects
+        result[curriculum["uuid"]] = subjects
 
-    remap_curriculums = {}
-    for curriculum in curriculums:
-        remap_curriculums[curriculum["uuid"]] = curriculum
-
-    for k, v in result.items():
-        remap_curriculums[k]["subjects"] = v
-
-    state["prev"] = result
-
-    return state
+    return {"subjects": result}
 
 
 def handle_module(state):
@@ -506,10 +538,8 @@ def handle_module(state):
             title="모듈 UUID",
             description="모듈의 고유 식별자",
         )
-        module_name: str = Field(
-            ..., max_length=200, description="모듈의 제목을 나타냅니다."
-        )
-        module_order: int = Field(
+        title: str = Field(..., max_length=200, description="모듈의 제목을 나타냅니다.")
+        order: int = Field(
             ..., ge=1, description="해당 과목에서 모듈의 순서를 나타냅니다."
         )
         is_mandatory: bool = Field(
@@ -535,8 +565,8 @@ def handle_module(state):
         {{
             "subjects": [
                 {{
-                    "module_name": "모듈명",
-                    "module_order": 1,
+                    "title": "모듈명",
+                    "order": 1,
                     "is_mandatory": true,
                     "description": "모듈 설명"
                 }}
@@ -548,9 +578,6 @@ def handle_module(state):
         
         과목:
         {subject}
-    
-        이전 모듈:
-        {prev}
         """
     )
 
@@ -558,34 +585,33 @@ def handle_module(state):
     chain = prompt | llm
 
     result = dict()
-    prev = None
 
     subjects = []
-    for sub in state["prev"].values():
+    for sub in state["subjects"].values():
         subjects.extend(sub)
 
-    for subject in subjects:
-        res = chain.invoke(
+    async def create(chain, subject, goal):
+        return await chain.ainvoke(
             {
                 "subject": subject,
-                "goal": state.get("goal"),
-                "prev": prev,
+                "goal": goal,
             }
         )
+
+    async def gather_results():
+        tasks = []
+        for subject in subjects:
+            tasks.append(create(chain, subject, state.get("goal")))
+        task_results = await asyncio.gather(*tasks)
+        return task_results
+
+    task_results = asyncio.run(gather_results())
+
+    for module, res in zip(subjects, task_results):
         modules = res.dict()["modules"]
-        result[subject["uuid"]] = modules
-        prev = modules
+        result[module["uuid"]] = modules
 
-    remap_subjects = {}
-    for subject in subjects:
-        remap_subjects[subject["uuid"]] = subject
-
-    for k, v in result.items():
-        remap_subjects[k]["modules"] = v
-
-    state["prev"] = result
-
-    return state
+    return {"modules": result}
 
 
 def handle_lesson(state):
@@ -595,10 +621,10 @@ def handle_lesson(state):
             title="레슨 UUID",
             description="레슨의 고유 식별자",
         )
-        lesson_name: str = Field(
+        title: str = Field(
             title="레슨명", max_length=200, description="레슨의 제목을 나타냅니다."
         )
-        lesson_order: int = Field(
+        order: int = Field(
             title="레슨 순서",
             ge=1,
             description="해당 모듈에서 레슨의 순서를 나타냅니다.",
@@ -626,8 +652,8 @@ def handle_lesson(state):
         {{
             "lessons": [
                 {{
-                    "lesson_name": "레슨명",
-                    "lesson_order": 1,
+                    "title": "레슨명",
+                    "order": 1,
                     "is_mandatory": true,
                     "description": "레슨 설명"
                 }}
@@ -639,44 +665,54 @@ def handle_lesson(state):
         
         모듈:
         {module}
-    
-        이전 레슨:
-        {prev}
         """
     )
 
     llm = ChatOpenAI(model_name="gpt-4o-mini").with_structured_output(Result)
     chain = prompt | llm
 
-    result = dict()
-    prev = None
+    # 동시 실행 작업 제한
 
-    modules = []
-    for sub_module in state["prev"].values():
-        modules.extend(sub_module)
+    semaphore = asyncio.Semaphore(10)  # 동시에 최대 10개의 작업만 허용
 
-    for module in modules:
-        res = chain.invoke(
-            {
-                "module": module,
-                "goal": state.get("goal"),
-                "prev": prev,
-            }
-        )
+    async def create(chain, module, goal, index, total):
+        async with semaphore:  # 세마포어로 동시 작업 제한
+            logger.info(f"진행 중: {index}/{total} - {module}")
+            result = await chain.ainvoke(
+                {
+                    "module": module,
+                    "goal": goal,
+                }
+            )
+            logger.info(f"완료됨: {index}/{total} - {module}")
+            return result
+
+    async def gather_results():
+        tasks = []
+        modules = []
+
+        # state에서 모듈 가져오기
+        for sub in state["modules"].values():
+            modules.extend(sub)
+
+        total_modules = len(modules)  # 총 모듈 수 계산
+
+        # 각 모듈에 대해 작업 생성
+        for index, module in enumerate(modules, 1):
+            tasks.append(create(chain, module, state.get("goal"), index, total_modules))
+
+        task_results = await asyncio.gather(*tasks)
+        logger.info("모든 작업 완료")
+        return task_results, modules
+
+    task_results, modules = asyncio.run(gather_results())
+
+    result = {}
+    for module, res in zip(modules, task_results):
         lessons = res.dict()["lessons"]
         result[module["uuid"]] = lessons
-        prev = lessons
 
-    remap_modules = {}
-    for module in modules:
-        remap_modules[module["uuid"]] = module
-
-    for k, v in result.items():
-        remap_modules[k]["lessons"] = v
-
-    state["prev"] = result
-
-    return state
+    return {"lessons": result}
 
 
 def handle_topic(state):
@@ -691,7 +727,7 @@ def handle_topic(state):
         )
         content: str = Field(
             title="주제 내용",
-            max_length=1000,
+            max_length=4000,
             description="주제에 대한 상세 설명을 나타냅니다.",
         )
 
@@ -703,9 +739,9 @@ def handle_topic(state):
         교육 프로그램 계층 구조에 대한 배경 정보가 제공되었습니다.
         주어진 목표와 레슨(Lesson)을 바탕으로 주제(Topic)을 작성하세요.
         만약 레슨에 대한 정보가 없다면, 목표를 기준으로 작성하세요.
-        각 주제는 각 레슨 항목에 대한 하위 주제입니다.
-        레슨의 uuid 는 유지해주세요.
         오직 'Result'의 속성에 언급된 내용만 작성해주세요.
+        content 에 대한 설명은 최대 4000자까지 작성할 수 있습니다.
+        name 의 내용을 conten 에 충분히 서술해주세요.
     
         출력은 다음과 같은 JSON 형식을 따라야 합니다:
         {{
@@ -726,60 +762,88 @@ def handle_topic(state):
     
         레슨:
         {lesson}
-    
-        이전 주제:
-        {prev}:
         """
     )
 
     llm = ChatOpenAI(model_name="gpt-4o-mini").with_structured_output(Result)
     chain = prompt | llm
 
-    result = dict()
-    prev = None
+    # async def create(chain, lesson, goal):
+    #     result = await chain.ainvoke(
+    #         {
+    #             "lesson": lesson,
+    #             "goal": goal,
+    #         }
+    #     )
+    #     logger.info("요청 처리됨")
+    #     return result
 
-    lessons = []
-    for sub_lesson in state["prev"].values():
-        lessons.extend(sub_lesson)
+    # async def gather_results():
+    #     tasks = []
+    #     lessons = []
+    #     for sub in state["lessons"].values():
+    #         lessons.extend(sub)
+    #     for lesson in lessons:
+    #         tasks.append(create(chain, lesson, state.get("goal")))
+    #     task_results = await asyncio.gather(*tasks)
+    #     return task_results, lessons
 
-    for lesson in lessons:
-        res = chain.invoke(
-            {
-                "lesson": lesson,
-                "goal": state.get("goal"),
-                "prev": prev,
-            }
-        )
+    # 동시 실행 작업 제한
+    semaphore = asyncio.Semaphore(10)  # 동시에 최대 10개의 작업만 허용
+
+    async def create(chain, lesson, goal, index, total):
+        async with semaphore:  # 세마포어로 동시 작업 제한
+            logger.info(f"진행 중: {index}/{total} - {lesson}")
+            result = await chain.ainvoke(
+                {
+                    "lesson": lesson,
+                    "goal": goal,
+                }
+            )
+            logger.info(f"완료됨: {index}/{total} - {lesson}")
+            return result
+
+    async def gather_results():
+        tasks = []
+        lessons = []
+        for sub in state["lessons"].values():
+            lessons.extend(sub)
+
+        total_lessons = len(lessons)
+
+        for index, lesson in enumerate(lessons, 1):
+            tasks.append(create(chain, lesson, state.get("goal"), index, total_lessons))
+
+        task_results = await asyncio.gather(*tasks)
+        logger.info("모든 작업 완료")
+        return task_results, lessons
+
+    task_results, lessons = asyncio.run(gather_results())
+
+    result = {}
+    for lesson, res in zip(lessons, task_results):
         topics = res.dict()["topics"]
         result[lesson["uuid"]] = topics
-        prev = topics
-
-    remap_lessons = {}
-    for lesson in lessons:
-        remap_lessons[lesson["uuid"]] = lesson
-
-    for k, v in result.items():
-        remap_lessons[k]["topics"] = v
 
     state["topics"] = result
-
-    return state
+    logger.info(result)
+    return {"topics": result}
 
 
 def determine_next_node(state):
-    if state["category"] == "program":
+    if state["category"] == "programs":
         return "Curriculum"
 
-    if state["category"] == "curriculum":
+    if state["category"] == "curriculums":
         return "Subject"
 
-    if state["category"] == "subject":
+    if state["category"] == "subjects":
         return "Module"
 
-    if state["category"] == "module":
+    if state["category"] == "modules":
         return "Lesson"
 
-    if state["category"] == "lesson":
+    if state["category"] == "lessons":
         return "Topic"
 
 
@@ -792,6 +856,49 @@ def check_classify_result(state):
 
 
 def select_node(state):
+    print(state)
+    return state
+
+
+def summary_result(state):
+    logger.info("Summary result")
+
+    def update_relations(state, parent_key, child_key):
+        parents = state[parent_key]
+        children = state[child_key]
+
+        ext = []
+        for sub in parents.values():
+            ext.extend(sub)
+
+        for parent in ext:
+            parent[child_key] = children[parent["uuid"]]
+
+    update_relations(state, "lessons", "topics")
+
+    if state["category"] == "lessons":
+        return {"result": state["lessons"]}
+
+    update_relations(state, "modules", "lessons")
+
+    if state["category"] == "modules":
+        return {"result": state["modules"]}
+
+    update_relations(state, "subjects", "modules")
+
+    if state["category"] == "subjects":
+        return {"result": state["subjects"]}
+
+    update_relations(state, "curriculums", "subjects")
+
+    if state["category"] == "curriculums":
+        return {"result": state["curriculums"]}
+
+    update_relations(state, "programs", "curriculums")
+
+    if state["category"] == "programs":
+        return {"result": state["programs"]}
+
     return state
 
 
@@ -827,6 +934,7 @@ def build_graph():
     graph.add_node("Topic", handle_topic)
 
     graph.add_node("SelectNode", select_node)
+    graph.add_node("Summary", summary_result)
 
     # -------------------------
     # 엣지 정의
@@ -869,39 +977,11 @@ def build_graph():
     graph.add_edge("Subject", "Module")
     graph.add_edge("Module", "Lesson")
     graph.add_edge("Lesson", "Topic")
-    graph.add_edge("Topic", END)
+    graph.add_edge("Topic", "Summary")
+    graph.add_edge("Summary", END)
 
     # -------------------------
     # 메모리 설정
     # -------------------------
     memory = MemorySaver()
     return graph.compile(checkpointer=memory, interrupt_after=["SelectNode"])
-
-
-def func():
-    graph = build_graph()
-    inputs = {"input": "JPA 에 대해서 알려주세요."}
-    # result = graph.invoke(inputs)
-
-    from pprint import pprint
-
-    config = {"configurable": {"thread_id": "1"}}
-
-    for output in graph.stream(inputs, config):
-        # 스트리밍된 출력은 노드 이름(key)과 그 결과(value)로 구성된 딕셔너리 형태로 제공됩니다.
-        for node_name, result in output.items():
-            print(f"Node '{node_name}' Output:")
-            pprint(result)
-            print("\n---\n")
-
-    graph.update_state(
-        config, {"selected_styles": result["styles"][:2]}, as_node="SelectNode"
-    )
-
-    graph.get_state(config)
-
-    for output in graph.stream(None, config):
-        for node_name, result in output.items():
-            print(f"Node '{node_name}' Output:")
-            pprint(result)
-            print("\n---\n")

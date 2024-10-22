@@ -1,57 +1,89 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './styles.css';  // 스타일 파일
-import { getBooks } from '../dataService';  // 책 데이터를 가져오는 함수
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import './styles.css'; // 스타일 파일
+import { getBooks } from '../dataService'; // 책 데이터를 가져오는 함수
 import Book from '../models/Book';
 
-
-// MyPage 컴포넌트
 const MyPage: React.FC = () => {
     const navigate = useNavigate();
-    const [dataList, setDataList] = useState<Book[]>([]);  // Book 데이터를 저장할 상태
-    const [loading, setLoading] = useState<boolean>(true);  // 로딩 상태
-    const [error, setError] = useState<string | null>(null);  // 에러 상태
+    const userId = localStorage.getItem('userId');
+    const [dataList, setDataList] = useState<Book[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
 
-    // 데이터 가져오는 비동기 함수
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const data = await getBooks();  // MongoDB에서 Book 데이터를 가져옴
-                setDataList(data);  // 가져온 데이터를 상태에 저장
+                if (!userId) {
+                    throw new Error('User ID not found');
+                }
+                const data = await getBooks(userId);
+                setDataList(data);
             } catch (error) {
                 console.error('데이터 가져오기 실패:', error);
-                setError('Failed to fetch data');  // 에러 발생 시 에러 상태 업데이트
+                setError('Failed to fetch data');
             } finally {
-                setLoading(false);  // 데이터를 가져오든 실패하든 로딩 종료
+                setLoading(false);
             }
         };
 
-        fetchData();  // 컴포넌트가 마운트되었을 때 데이터 가져오기
-    }, []);  // 빈 배열을 전달하여 컴포넌트가 처음 렌더링될 때만 실행
+        fetchData();
+    }, []);
 
-    // 프로그램 클릭 시 Flow 페이지로 이동하는 함수
-    const handleProgramClick = useCallback((programId: string) => {
+    const handleProgramClick = useCallback((programId: number) => {
         navigate(`/flow/${programId}`);
     }, [navigate]);
 
-    // 로딩 상태일 때 로딩 메시지 표시
+    const handleCreateClick = () => {
+        // 생성하기 버튼 클릭 시 호출될 함수. 이 부분은 직접 기능을 구현하세요.
+        console.log('생성하기 버튼 클릭됨');
+        navigate('/create');
+    };
+
     if (loading) {
-        return <div>Loading...</div>;
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <span className="loading loading-spinner loading-lg text-primary"></span>
+            </div>
+        );
     }
 
-    // 에러 상태일 때 에러 메시지 표시
     if (error) {
-        return <div>{error}</div>;
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="alert alert-error shadow-lg w-96">
+                    <div>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636l-12.728 12.728m12.728 0L5.636 5.636"></path>
+                        </svg>
+                        <span>{error}</span>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="p-5">
-            <h1 className="text-2xl font-bold mb-4">마이 페이지</h1>
-            <ul>
-                {dataList.map((data) => (
-                    <li key={data._id} className="cursor-pointer hover:bg-gray-200 p-2">
-                        <div onClick={() => handleProgramClick(data._id)}>
-                            {data.title} - {data.description}
+        <div className="p-5 bg-base-200 min-h-screen">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold text-primary">마이 페이지</h1>
+                <button
+                    className="btn btn-primary"
+                    onClick={handleCreateClick}
+                >
+                    생성하기
+                </button>
+            </div>
+            <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {dataList.map((data, idx) => (
+                    <li
+                        key={data._id}
+                        className="card shadow-xl hover:shadow-2xl transition-shadow cursor-pointer"
+                        onClick={() => handleProgramClick(idx)}
+                    >
+                        <div className="card-body">
+                            <h2 className="card-title text-lg">{data.title}</h2>
+                            <p>{data.description}</p>
                         </div>
                     </li>
                 ))}

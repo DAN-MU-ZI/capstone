@@ -137,6 +137,7 @@ const Flow: React.FC = () => {
     const [loading, setLoading] = useState<boolean>(true);  // 로딩 상태 추가
     const [error, setError] = useState<string | null>(null);  // 에러 상태 추가
 
+    const userId = localStorage.getItem('userId');
     const [nodesState, setNodesState, onNodesChange] = useNodesState([]);
     const [edgesState, setEdgesState, onEdgesChange] = useEdgesState([]);
     const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
@@ -149,11 +150,15 @@ const Flow: React.FC = () => {
                 if (!programId) {
                     throw new Error('Program ID is undefined');
                 }
-                const response = await getBookById(programId);  // API를 통해 데이터 가져오기
+                if (!userId) {
+                    throw new Error('User ID is undefined');
+                }
+                const response = await getBookById(userId, programId);  // API를 통해 데이터 가져오기
                 const { nodes, edges } = createNodesAndEdges(response.content);  // 노드와 엣지 생성
                 setNodesState(nodes);  // 노드 상태 업데이트
                 setEdgesState(edges);  // 엣지 상태 업데이트
                 setLoading(false);  // 로딩 완료
+                console.log('데이터 로드 완료:', response);
             } catch (err) {
                 console.error('데이터 로드 실패:', err);
                 setError('데이터를 가져오는 중 문제가 발생했습니다.');

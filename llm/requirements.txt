@@ -2,3 +2,16 @@ fastapi
 uvicorn
 pydantic
 motor
+websockets
+nest_asyncio
+requests
+langchain
+langchain-openai
+langgraph
+beautifulsoup4
+html5lib
+langchain_community
+playwright
+greenlet
+pytest-playwright
+unstructured

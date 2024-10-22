@@ -31,11 +31,26 @@ const Header: React.FC = () => {
         <header className="p-4 bg-base-100 text-base-content shadow-md">
             <nav className="flex justify-between items-center">
                 <ul className="flex space-x-4">
-                    <li>
-                        <Link to="/" className="hover:text-blue-500">
-                            Home
-                        </Link>
-                    </li>
+                    {localStorage.getItem('userId') ? (
+                        <li>
+                            <button
+                                onClick={() => {
+                                    localStorage.removeItem('userId');
+                                    // 로그아웃 후 추가로 필요한 작업이 있다면 여기에 추가
+                                    window.location.href = '/'; // "/" 로 이동
+                                }}
+                                className="hover:text-blue-500"
+                            >
+                                Logout
+                            </button>
+                        </li>
+                    ) : (
+                        <li>
+                            <Link to="/" className="hover:text-blue-500">
+                                Login
+                            </Link>
+                        </li>
+                    )}
                     <li>
                         <Link to="/my" className="hover:text-blue-500">
                             My
