@@ -7,7 +7,7 @@ interface User {
     name: string;
 }
 
-const LoginPage = () => {
+const Login = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [loginMessage, setLoginMessage] = useState<string | null>(null);
@@ -90,4 +90,4 @@ const LoginPage = () => {
     );
 };
 
-export default LoginPage;
+export default Login;
